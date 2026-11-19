@@ -46,14 +46,16 @@ export function OfferEditor({ campaign, onCampaignChange }: Props) {
       .catch((e: Error) => setError(e.message))
   }, [campaign])
 
-  const load = useCallback((id: number) => {
+  const load = useCallback((id: number, refresh = false) => {
+    reqId.current++ // ответы пересчёта по старому черновику больше не нужны
     setLoading(true)
     setError(null)
-    api
-      .editor(id)
+    return api
+      .editor(id, refresh)
       .then((st) => {
         setBase(st)
         setDraft({ items: st.items, total: st.total, errors: st.errors })
+        if (refresh) setNotice(`Данные обновлены из Keitaro в ${new Date().toLocaleTimeString()}`)
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -62,6 +64,29 @@ export function OfferEditor({ campaign, onCampaignChange }: Props) {
   useEffect(() => {
     if (streamId) load(streamId)
   }, [streamId, load])
+
+  // «Обновить из Keitaro»: перечитать потоки кампании и офферы в обход кэша
+  const refresh = async () => {
+    if (!campaign) return
+    if (dirty && !window.confirm('Есть неприменённые изменения. Сбросить их и загрузить данные из Keitaro?')) return
+    setNotice(null)
+    setError(null)
+    try {
+      const s = await api.offerStreams(campaign.id)
+      setStreams(s)
+      if (s.length === 0) {
+        setBase(null)
+        setDraft(null)
+        setError('В кампании нет потока с офферами')
+        return
+      }
+      const id = streamId && s.some((x) => x.id === streamId) ? streamId : s[0].id
+      if (id === streamId) await load(id, true)
+      else setStreamId(id) // поток пропал — переключаемся на первый, загрузит эффект
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
 
   // каждое изменение черновика -> пересчёт процентов на бэкенде
   const update = (items: EditorItem[]) => {
@@ -148,6 +173,16 @@ export function OfferEditor({ campaign, onCampaignChange }: Props) {
           <span>Кампания</span>
           <Autocomplete value={campaign} onChange={onCampaignChange} search={api.campaigns} />
         </div>
+        {campaign && (
+          <div className="field">
+            <span />
+            <div>
+              <button type="button" className="ghost" onClick={refresh} disabled={loading || applying}>
+                ↻ Обновить из Keitaro
+              </button>
+            </div>
+          </div>
+        )}
         {streams.length > 1 && (
           <label className="field">
             <span>Поток</span>

@@ -122,6 +122,13 @@ async def apply_draft(
     current = {o["offer_id"]: int(o.get("share") or 0) for o in stream.get("offers") or []}
     names = {it.offer_id: it.name for it in draft.items}
 
+    # черновик строился от состояния, которое могло устареть: не затираем чужие правки в Keitaro
+    baseline = {it.offer_id: it.original_share for it in draft.items if it.original_share is not None}
+    if baseline != current:
+        raise KeitaroError(
+            409, "Офферы потока изменились в Keitaro после загрузки. Нажмите «Обновить из Keitaro» и повторите."
+        )
+
     active = [it for it in draft.items if not it.removed]
     active_ids = {it.offer_id for it in active}
 

@@ -94,7 +94,8 @@ export const api = {
   createdCampaigns: () => request<CreatedCampaign[]>('/campaigns/created'),
   campaigns: (q: string) => request<Option[]>(`/campaigns?q=${encodeURIComponent(q)}&limit=30`),
   offerStreams: (campaignId: number) => request<OfferStreamInfo[]>(`/campaigns/${campaignId}/offer-streams`),
-  editor: (streamId: number) => request<EditorState>(`/streams/${streamId}/editor`),
+  editor: (streamId: number, refresh = false) =>
+    request<EditorState>(`/streams/${streamId}/editor${refresh ? '?refresh=true' : ''}`),
   rebalance: (streamId: number, items: EditorItem[]) =>
     request<Draft>(`/streams/${streamId}/rebalance`, { method: 'POST', body: JSON.stringify({ items }) }),
   apply: (streamId: number, items: EditorItem[]) =>

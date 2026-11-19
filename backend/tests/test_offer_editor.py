@@ -143,3 +143,30 @@ async def test_load_editor_marks_pins(session):
     await session.commit()
     state = await load_editor(10, KeitaroClient(BASE, "key"), session)
     assert state.items[0].pinned and state.items[0].name == "o1" and state.total == 100
+
+
+@respx.mock
+async def test_apply_rejects_stale_draft(session):
+    # черновик строился от 1:100, а в Keitaro за это время добавили оффер 2
+    put = mock_keitaro([{"offer_id": 1, "share": 50, "state": "active"}, {"offer_id": 2, "share": 50, "state": "active"}])
+    with pytest.raises(KeitaroError, match="изменились в Keitaro") as exc:
+        await apply_draft(10, [it(1, 0, original=100), it(3)], KeitaroClient(BASE, "key"), session)
+    assert exc.value.status_code == 409
+    assert not put.called
+
+
+@respx.mock
+async def test_refresh_bypasses_offer_cache(session):
+    mock_keitaro([{"offer_id": 1, "share": 100, "state": "active"}])
+    offers = respx.get(f"{BASE}/offers").mock(
+        side_effect=[
+            respx.MockResponse(200, json=[{"id": 1, "name": "old"}]),
+            respx.MockResponse(200, json=[{"id": 1, "name": "renamed"}]),
+        ]
+    )
+    k = KeitaroClient(BASE, "key", cache_ttl=60)
+    assert (await load_editor(10, k, session)).items[0].name == "old"
+    assert (await load_editor(10, k, session)).items[0].name == "old"  # из кэша
+    k.invalidate("offers")  # то же делает ?refresh=true
+    assert (await load_editor(10, k, session)).items[0].name == "renamed"
+    assert offers.call_count == 2

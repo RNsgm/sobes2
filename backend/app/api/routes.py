@@ -88,9 +88,13 @@ async def offer_streams(campaign_id: int, keitaro: KeitaroClient = Depends(get_k
 @router.get("/streams/{stream_id}/editor", response_model=EditorState)
 async def editor_state(
     stream_id: int,
+    refresh: bool = Query(False, description="Перечитать справочники Keitaro в обход кэша"),
     keitaro: KeitaroClient = Depends(get_keitaro),
     session: AsyncSession = Depends(get_session),
 ):
+    if refresh:
+        keitaro.invalidate("offers")
+        keitaro.invalidate("campaigns")
     return await offer_editor.load_editor(stream_id, keitaro, session)
 
 
