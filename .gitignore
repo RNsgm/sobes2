@@ -1,0 +1,18 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+backend/.env
+backend/*.db
+
+# node
+node_modules/
+frontend/dist/
+
+# ide
+.idea/
+.vscode/
+
+# local tooling
+.claude/
