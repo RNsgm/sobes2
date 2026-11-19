@@ -18,22 +18,29 @@ export function Autocomplete({ value, onChange, search, placeholder, exclude = [
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
   // поиск с debounce
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    const t = setTimeout(() => {
-      search(query)
-        .then((r) => {
-          if (cancelled) return
-          setItems(r)
-          setActive(0)
-          setError(null)
-        })
-        .catch((e: Error) => !cancelled && setError(e.message))
-    }, 250)
+    setLoading(true)
+    // первый показ списка (пустой запрос) — сразу, ввод — с небольшим debounce
+    const t = setTimeout(
+      () => {
+        search(query)
+          .then((r) => {
+            if (cancelled) return
+            setItems(r)
+            setActive(0)
+            setError(null)
+          })
+          .catch((e: Error) => !cancelled && setError(e.message))
+          .finally(() => !cancelled && setLoading(false))
+      },
+      query ? 150 : 0,
+    )
     return () => {
       cancelled = true
       clearTimeout(t)
@@ -81,7 +88,8 @@ export function Autocomplete({ value, onChange, search, placeholder, exclude = [
           setOpen(true)
         }}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') setActive((a) => Math.min(a + 1, visible.length - 1))
+          if (e.key === 'Enter' && loading) e.preventDefault() // не выбирать устаревший результат
+          else if (e.key === 'ArrowDown') setActive((a) => Math.min(a + 1, visible.length - 1))
           else if (e.key === 'ArrowUp') setActive((a) => Math.max(a - 1, 0))
           else if (e.key === 'Enter' && open && visible[active]) {
             e.preventDefault()
@@ -90,9 +98,14 @@ export function Autocomplete({ value, onChange, search, placeholder, exclude = [
         }}
       />
       {open && (
-        <ul className="ac-list">
+        <ul className={`ac-list ${loading && visible.length > 0 ? 'stale' : ''}`}>
           {error && <li className="ac-empty error">{error}</li>}
-          {!error && visible.length === 0 && <li className="ac-empty">Ничего не найдено</li>}
+          {!error && loading && visible.length === 0 && <li className="ac-empty">Загрузка…</li>}
+          {!error && !loading && visible.length === 0 && (
+            <li className="ac-empty">
+              {items.length > 0 ? 'Все найденные уже добавлены' : 'Ничего не найдено'}
+            </li>
+          )}
           {visible.map((o, i) => (
             <li
               key={o.id}

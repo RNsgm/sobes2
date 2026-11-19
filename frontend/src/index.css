@@ -134,3 +134,4 @@ tfoot td { border-bottom: 0; font-weight: 500; }
 
 .removed { margin-top: 28px; }
 .removed h3 { margin: 0 0 8px; font-size: 15px; }
+.ac-list.stale li:not(.ac-empty) { opacity: 0.55; }

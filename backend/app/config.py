@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     keitaro_url: str = "https://tlgk.host/admin_api/v1"
     keitaro_api_key: str = ""
     keitaro_timeout: float = 30.0
+    keitaro_cache_ttl: float = 60.0  # сек, кэш справочников (кампании, офферы, домены...)
 
     database_url: str = "sqlite+aiosqlite:///./app.db"
 

@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -6,12 +8,26 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import router
 from app.config import get_settings
-from app.keitaro.client import KeitaroError, close_keitaro
+from app.keitaro.client import KeitaroError, close_keitaro, get_keitaro
+
+
+async def _warm_cache() -> None:
+    """Подгружаем справочники Keitaro заранее, чтобы первый поиск в UI не ждал холодный запрос."""
+    k = get_keitaro()
+    await asyncio.gather(
+        k.list_campaigns(), k.list_offers(), k.list_domains(), k.list_groups(), k.list_traffic_sources(),
+        return_exceptions=True,
+    )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    warm = asyncio.create_task(_warm_cache()) if get_settings().keitaro_cache_ttl > 0 else None
     yield
+    if warm:
+        warm.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await warm
     await close_keitaro()
 
 

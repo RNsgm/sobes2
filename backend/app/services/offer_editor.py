@@ -11,6 +11,8 @@
     целыми процентами; лишние единицы получают первые по порядку офферы.
 """
 
+import asyncio
+
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,8 +71,7 @@ async def _offer_names(keitaro: KeitaroClient) -> dict[int, str]:
 
 
 async def load_editor(stream_id: int, keitaro: KeitaroClient, session: AsyncSession) -> EditorState:
-    stream = await keitaro.get_stream(stream_id)
-    names = await _offer_names(keitaro)
+    stream, names = await asyncio.gather(keitaro.get_stream(stream_id), _offer_names(keitaro))
 
     pinned_ids = set(
         (await session.execute(select(PinnedOffer.offer_id).where(PinnedOffer.stream_id == stream_id))).scalars()

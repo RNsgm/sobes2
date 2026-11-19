@@ -80,3 +80,34 @@ async def test_rollback_when_stream_fails(session):
     with pytest.raises(KeitaroError, match="bad filter"):
         await create_campaign(payload(), KeitaroClient(BASE, "key"), session)
     assert archived.called
+
+
+@respx.mock
+async def test_dictionary_cache_and_invalidation():
+    route = respx.get(f"{BASE}/campaigns").respond(json=[{"id": 1, "name": "a"}])
+    respx.post(f"{BASE}/campaigns").respond(json={"id": 2})
+    client = KeitaroClient(BASE, "key", cache_ttl=60)
+
+    await client.list_campaigns()
+    await client.list_campaigns()
+    assert route.call_count == 1  # второй раз из кэша
+
+    await client.create_campaign({"name": "b", "alias": "b"})
+    await client.list_campaigns()
+    assert route.call_count == 2  # после создания кампании кэш сброшен
+
+
+@respx.mock
+async def test_stale_cache_returned_immediately_and_refreshed():
+    import asyncio
+
+    route = respx.get(f"{BASE}/offers").mock(
+        side_effect=[httpx.Response(200, json=[{"id": 1}]), httpx.Response(200, json=[{"id": 2}])]
+    )
+    client = KeitaroClient(BASE, "key", cache_ttl=0.01)
+    assert await client.list_offers() == [{"id": 1}]
+    await asyncio.sleep(0.02)  # кэш протух
+    assert await client.list_offers() == [{"id": 1}]  # старые данные сразу
+    await asyncio.sleep(0.05)  # фоновое обновление
+    assert await client.list_offers() == [{"id": 2}]
+    assert route.call_count == 2
