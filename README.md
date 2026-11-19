@@ -48,12 +48,27 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate   |   Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env          # и впишите KEITARO_API_KEY
+cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
 alembic upgrade head          # миграции -> создаёт app.db
 uvicorn app.main:app --reload --port 8000
 ```
 
 Swagger обёртки: http://127.0.0.1:8000/docs
+
+#### `backend/.env`
+
+Шаблон лежит в [`backend/.env.example`](backend/.env.example). Скопируйте его командой выше или вставьте этот блок в `backend/.env` и замените `KEITARO_API_KEY` на свой ключ (Keitaro → Профиль → API ключи):
+
+```dotenv
+KEITARO_URL=https://tlgk.host/admin_api/v1
+KEITARO_API_KEY=put-your-key-here
+KEITARO_CACHE_TTL=60
+DATABASE_URL=sqlite+aiosqlite:///./app.db
+GEO_REDIRECT_URL=https://google.com
+CORS_ORIGINS=http://localhost:5173
+```
+
+Обязателен только `KEITARO_API_KEY`, у остальных переменных есть значения по умолчанию.
 
 ### Frontend
 
